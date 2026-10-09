@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Balanza de responsabilidades</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#dce5f0;color:#17384a}
+.wrap{max-width:1450px;margin:auto;padding:18px}
+.activity{background:#fffbea;border-radius:8px;overflow:hidden;box-shadow:0 8px 25px #17384a22}
+.top{display:flex;gap:20px;padding:18px 28px 8px}
+.badge{flex:1;text-align:center;padding:12px;border:2px solid #17384a;border-radius:18px;font-size:clamp(20px,2.4vw,32px);font-weight:900}
+.m{background:#ffd5e6}.h{background:#cdeeff}
+.board{position:relative;height:min(62vw,680px);min-height:460px;background:#fffbea;overflow:hidden}
+.balance{position:absolute;left:50%;top:50%;width:68%;height:56%;transform:translate(-50%,-50%);transform-origin:50% 52%;transition:transform .45s ease;z-index:3}
+.pan{position:absolute;top:2%;width:29%;height:27%;background:#d5d5d5;border:2px solid #666;border-radius:50% 50% 45% 45%/38% 38% 22% 22%;box-shadow:inset 0 -9px #777}
+.pan.left{left:3%}.pan.right{right:3%}
+.hanger{position:absolute;top:22%;width:4px;height:18%;background:#777}.hanger.left{left:17%}.hanger.right{right:17%}
+.bar{position:absolute;left:7%;right:7%;top:39%;height:22px;background:#bbb;border:2px solid #666;border-radius:5px;box-shadow:0 5px #777}
+.pivot{position:absolute;left:50%;top:45%;transform:translateX(-50%);width:58px;height:120px;background:#ccc;border:2px solid #666;clip-path:polygon(25% 0,75% 0,100% 100%,0 100%)}
+.bowl-token{position:absolute;top:5%;width:29%;min-height:55px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:4px}
+.bowl-token.left{left:3%}.bowl-token.right{right:3%}
+.token{width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #333;display:flex;align-items:center;justify-content:center;font-weight:900;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.drop{position:absolute;top:2%;width:32%;height:30%;z-index:8;border-radius:30px;touch-action:none}
+.drop.left{left:1%}.drop.right{right:1%}.drop.over{background:#5baeff22;outline:4px dashed #4c8db5}
+.message{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);width:75%;text-align:center;font-weight:900;font-size:clamp(16px,2vw,25px);z-index:10}
+.controls{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;padding:14px;background:#17384a;color:white}
+button{border:0;border-radius:999px;padding:10px 18px;font-weight:900;cursor:pointer;color:#17384a}
+.tasks{padding:16px;background:#0b465c}.tasks h2{color:white;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:9px}
+.card{touch-action:none;-webkit-user-select:none;user-select:none;min-height:108px;background:white;border-radius:14px;border:3px solid #ddd;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:900;cursor:grab;touch-action:none;user-select:none;box-shadow:0 4px 9px #0003;padding:6px}
+.emoji{font-size:34px}.card.used{opacity:.25;filter:grayscale(1);cursor:default}
+.note{color:white;text-align:center;opacity:.85;font-size:13px;margin-top:9px}
+.ghost{position:fixed;z-index:99;width:110px;height:85px;background:white;border-radius:14px;box-shadow:0 12px 30px #0006;display:flex;align-items:center;justify-content:center;font-size:34px;pointer-events:none}
+@media(max-width:900px){.grid{grid-template-columns:repeat(5,1fr)}}
+@media(max-width:600px){.top{padding:10px}.badge{font-size:17px;padding:9px}.board{height:470px;min-height:0}.balance{width:96%}.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="activity">
+<div class="top"><div class="badge m">👩 MUJERES</div><div class="badge h">👨 HOMBRES</div></div>
+<div class="board">
+<div class="balance" id="balance">
+<div class="pan left"></div><div class="pan right"></div>
+<div class="hanger left"></div><div class="hanger right"></div>
+<div class="bar"></div><div class="pivot"></div>
+<div class="bowl-token left" id="leftTokens"></div><div class="bowl-token right" id="rightTokens"></div>
+</div>
+<div class="drop left" data-side="left"></div><div class="drop right" data-side="right"></div>
+<div class="message" id="message">Arrastra las tareas hacia un lado de la balanza</div>
+</div>
+<div class="controls"><button id="reset">↺ Reiniciar actividad</button><span>Cada tarea pesa 1 punto. Puedes mover una tarea de un lado al otro.</span></div>
+<div class="tasks"><h2>Tareas del hogar</h2><div class="grid" id="grid"></div><div class="note">En teléfono: mantén presionada una ficha y arrástrala a la bandeja. Funciona también con mouse y lápiz digital.</div></div>
+</div></div>
+<script>
+const tasks=[{"emoji": "🍳", "name": "Cocinar"}, {"emoji": "🧹", "name": "Limpiar"}, {"emoji": "🧺", "name": "Lavar ropa"}, {"emoji": "🛒", "name": "Hacer compras"}, {"emoji": "👶", "name": "Cuidar hijos/as"}, {"emoji": "🧾", "name": "Pagar servicios"}, {"emoji": "👕", "name": "Tender/recoger ropa"}, {"emoji": "🍽️", "name": "Lavar trastes"}, {"emoji": "🐾", "name": "Cuidar mascotas"}, {"emoji": "📅", "name": "Organizar actividades"}];
+const state=tasks.map(()=>({side:null}));
+const grid=document.getElementById('grid'),balance=document.getElementById('balance'),msg=document.getElementById('message'),drops=[...document.querySelectorAll('.drop')];
+let drag=null;
+
+tasks.forEach((t,i)=>{
+ const c=document.createElement('div');c.className='card';
+ c.innerHTML=`<div class="emoji">${t.emoji}</div><div>${t.name}</div>`;
+ c.onpointerdown=e=>start(i,e,'source',null);grid.appendChild(c);
+});
+
+function ghost(i,x,y){
+ const g=document.createElement('div');g.className='ghost';g.textContent=tasks[i].emoji;
+ document.body.appendChild(g);moveGhost(g,x,y);return g;
+}
+function moveGhost(g,x,y){g.style.left=(x-55)+'px';g.style.top=(y-42)+'px'}
+function start(i,e,type,old){
+ e.preventDefault();
+ if(e.currentTarget && e.currentTarget.setPointerCapture){try{e.currentTarget.setPointerCapture(e.pointerId)}catch(err){}}
+ drag={i,type,old,g:ghost(i,e.clientX,e.clientY)};
+ window.addEventListener('pointermove',moving);window.addEventListener('pointerup',ending,{once:true});
+}
+function moving(e){
+ if(!drag)return;moveGhost(drag.g,e.clientX,e.clientY);
+ drops.forEach(d=>d.classList.toggle('over',inside(e,d)));
+}
+function inside(e,d){
+ const r=d.getBoundingClientRect();
+ return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+}
+function ending(e){
+ if(!drag)return;const d=drops.find(x=>inside(e,x));
+ drops.forEach(x=>x.classList.remove('over'));drag.g.remove();
+ if(d)state[drag.i].side=d.dataset.side;
+ else if(drag.type==='token')state[drag.i].side=drag.old;
+ window.removeEventListener('pointermove',moving);drag=null;render();
+}
+function render(){
+ document.querySelectorAll('.bowl-token').forEach(x=>x.innerHTML='');
+ let l=0,r=0;
+ state.forEach((s,i)=>{
+  if(!s.side)return;s.side==='left'?l++:r++;
+  const t=document.createElement('div');t.className='token';t.textContent=i+1;t.title=tasks[i].name;
+  t.onpointerdown=e=>start(i,e,'token',s.side);
+  document.getElementById(s.side+'Tokens').appendChild(t);
+ });
+ document.querySelectorAll('.card').forEach((c,i)=>c.classList.toggle('used',!!state[i].side));
+ const diff=l-r;
+ balance.style.transform=`translate(-50%,-50%) rotate(${Math.max(-16,Math.min(16,-diff*3.2))}deg)`;
+ if(!l&&!r)msg.textContent='Arrastra las tareas hacia un lado de la balanza';
+ else if(diff===0)msg.textContent=`⚖️ Equilibrio · Mujeres ${l} / Hombres ${r}`;
+ else if(diff>0)msg.textContent=`← Más responsabilidades en MUJERES · ${l} / ${r}`;
+ else msg.textContent=`Más responsabilidades en HOMBRES → · ${l} / ${r}`;
+}
+document.getElementById('reset').onclick=()=>{state.forEach(s=>s.side=null);render()};render();
+</script>
+</body></html>
